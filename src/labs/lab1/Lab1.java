@@ -25,7 +25,7 @@ public class Lab1 extends Application {
         processProductionsIntoGraph();
         setJavaFXStage();
         //check if word accepted by automata
-        System.out.println(checkIfStringAcceptedByFA(getNodeBySymbolName("S"), 0, "ab"));
+        System.out.println(checkIfStringAcceptedByFA(getNodeBySymbolName("S"), 0, "bbabbbb"));
     }
 
     private void processProductionsIntoGraph() {
@@ -81,35 +81,40 @@ public class Lab1 extends Application {
 
     private boolean checkIfStringAcceptedByFA (Node n, int wordIndex, String word) {
         boolean result = false;
-        String symbol = String.valueOf(word.charAt(wordIndex));
 
         for (Node w: n.getAdjacentNodes()) {
+            List<Link> linkList = getLinks(n, w);
+            for (Link link : linkList) {
 
-            String edgeLabel = getLinkLabel(n, w);
-            boolean wIsEndState = w.getAdjacentNodes().isEmpty();
-
-            if (wIsEndState) {
-                boolean lastCharacterFitsTerminalSymbol = wordIndex == word.length() - 1 && symbol.equals(edgeLabel);
-                if (lastCharacterFitsTerminalSymbol) {
-                    return true;
+                if (checkIfLastCharFitsTerminalSymbol(w, wordIndex, word, link)) return true;
+                if (checkIfIndexInBoundsAndCharFitsCurrSymbol(wordIndex, word, link)) {
+                    // analyze next production, else backtrack if you get back from recursion with a false result
+                    result = checkIfStringAcceptedByFA(w, ++wordIndex, word);
+                    --wordIndex;
+                    if (result) return true;
                 }
-            }
-
-            boolean indexInBoundsAndCharFitsCurrSymbol = wordIndex + 1 < word.length() && edgeLabel.equals(symbol);
-
-            if (indexInBoundsAndCharFitsCurrSymbol) {
-                // analyze next production, else backtrack if you get back from recursion with a false result
-                result = checkIfStringAcceptedByFA(w, ++wordIndex, word);
-                if (result) break;
             }
         }
         return result;
-}
+    }
 
-    private String getLinkLabel(Node n, Node w) {
+    private boolean checkIfIndexInBoundsAndCharFitsCurrSymbol(int wordIndex, String word, Link link) {
+        String symbol = String.valueOf(word.charAt(wordIndex));
+        return wordIndex + 1 < word.length() && link.getLabel().equals(symbol);
+    }
 
-        Optional<Link> link = links.stream().filter(l -> l.getNode1().equals(n) && l.getNode2().equals(w)).findFirst();
-        return link.map(Link::getLabel).orElse(null);
+    private boolean checkIfLastCharFitsTerminalSymbol(Node w, int wordIndex, String word, Link link) {
+        boolean wIsEndState = w.getAdjacentNodes().isEmpty();
+        String symbol = String.valueOf(word.charAt(wordIndex));
+        if (wIsEndState) {
+            return wordIndex == word.length() - 1 && symbol.equals(link.getLabel());
+        }
+        return false;
+    }
+
+    private List<Link> getLinks(Node n, Node w) {
+
+        return links.stream().filter(li -> li.getNode1().equals(n) && li.getNode2().equals(w)).toList();
     }
 
     private void setJavaFXStage() {
