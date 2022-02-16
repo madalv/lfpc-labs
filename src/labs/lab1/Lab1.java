@@ -15,6 +15,8 @@ public class Lab1 extends Application {
     private final List<Node> nodesToTrack = new ArrayList<>();
     private final List<Link> links = new ArrayList<>();
     private final Digraph<String, String> digraph = new DigraphEdgeList<>(); // visual graph
+    private final static Scanner scanner = new Scanner(System.in);
+
 
     public static void main(String[] args) {
         launch(args);
@@ -25,7 +27,22 @@ public class Lab1 extends Application {
         processProductionsIntoGraph();
         setJavaFXStage();
         //check if word accepted by automata
-        System.out.println(checkIfStringAcceptedByFA(getNodeBySymbolName("S"), 0, "bbabbbb"));
+        new Thread(this::checkStrings).start();
+    }
+
+    private void checkStrings() {
+        String outputText = """
+                Input a string on each line. The result will be shown on the next line.
+                Enter 'end' to stop.""";
+
+        System.out.println(outputText);
+
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            if (line.equals("end")) break;
+
+            System.out.println(checkIfStringAcceptedByFA(getNodeBySymbolName("S"), 0, line));
+        }
     }
 
     private void processProductionsIntoGraph() {
@@ -34,7 +51,6 @@ public class Lab1 extends Application {
                 Input productions, one on each line, in the form 'A->aA':
                 Enter 'end' to stop.""";
         System.out.println(outputText);
-        Scanner scanner = new Scanner(System.in);
         int nrOfNonTerminalSymbols = Integer.parseInt(scanner.nextLine());
         int nrOfSpaces = 0;
 
@@ -86,39 +102,37 @@ public class Lab1 extends Application {
             List<Link> linkList = getLinks(n, w);
             for (Link link : linkList) {
 
-                if (checkIfLastCharFitsTerminalSymbol(w, wordIndex, word, link)) return true;
-                if (checkIfIndexInBoundsAndCharFitsCurrSymbol(wordIndex, word, link)) {
+                if (checkIfLastCharFitsLinkToEndState(w, wordIndex, word, link)) return true;
+                if (checkIfIndexInBoundsAndLinkFitsCurrChar(wordIndex, word, link)) {
                     // analyze next production, else backtrack if you get back from recursion with a false result
                     result = checkIfStringAcceptedByFA(w, ++wordIndex, word);
                     --wordIndex;
-                    if (result) return true;
+                    if (result) return true; // if you got the favourable case, get out early, no need to check others
                 }
             }
         }
         return result;
     }
 
-    private boolean checkIfIndexInBoundsAndCharFitsCurrSymbol(int wordIndex, String word, Link link) {
-        String symbol = String.valueOf(word.charAt(wordIndex));
-        return wordIndex + 1 < word.length() && link.getLabel().equals(symbol);
+    private boolean checkIfIndexInBoundsAndLinkFitsCurrChar(int wordIndex, String word, Link link) {
+        String currChar = String.valueOf(word.charAt(wordIndex));
+        return wordIndex + 1 < word.length() && link.getLabel().equals(currChar);
     }
 
-    private boolean checkIfLastCharFitsTerminalSymbol(Node w, int wordIndex, String word, Link link) {
+    private boolean checkIfLastCharFitsLinkToEndState(Node w, int wordIndex, String word, Link link) {
         boolean wIsEndState = w.getAdjacentNodes().isEmpty();
-        String symbol = String.valueOf(word.charAt(wordIndex));
+        String lastChar = String.valueOf(word.charAt(wordIndex));
         if (wIsEndState) {
-            return wordIndex == word.length() - 1 && symbol.equals(link.getLabel());
+            return wordIndex == word.length() - 1 && lastChar.equals(link.getLabel());
         }
         return false;
     }
 
     private List<Link> getLinks(Node n, Node w) {
-
         return links.stream().filter(li -> li.getNode1().equals(n) && li.getNode2().equals(w)).toList();
     }
 
     private void setJavaFXStage() {
-
         SmartGraphPanel<String, String> graphView = new SmartGraphPanel<>(digraph, new SmartRandomPlacementStrategy());
         Scene scene = new Scene(graphView, 1024, 768);
         Stage stage = new Stage(StageStyle.DECORATED);
@@ -129,7 +143,9 @@ public class Lab1 extends Application {
     }
 
     private int getNodeIndexBySymbolName(String name) {
-        OptionalInt nodeIndex = IntStream.range(0, nodesToTrack.size()).filter(n -> nodesToTrack.get(n).getSymbolName().equals(name)).findFirst();
+        OptionalInt nodeIndex = IntStream.range(0, nodesToTrack.size())
+                .filter(n -> nodesToTrack.get(n).getSymbolName().equals(name))
+                .findFirst();
 
         if (nodeIndex.isPresent()) {
             return nodeIndex.getAsInt();
@@ -138,7 +154,6 @@ public class Lab1 extends Application {
 
     private Node getNodeBySymbolName(String name) {
         Optional<Node> node = nodesToTrack.stream().filter(n -> n.getSymbolName().equals(name)).findFirst();
-
         return node.orElse(null);
     }
 
