@@ -1,36 +1,33 @@
 package labs.lab2;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+// work on abstraction
 
 public class FiniteAutomaton {
-    private final HashMap<String, HashMap<String, String>> rows;
+    private final LinkedHashMap<String, LinkedHashMap<String, String>> rows;
     private final String[] alphabet;
     private final String endState;
 
-    public HashMap<String, HashMap<String, String>> getTransitions() {
-        return rows;
-    }
-    public String getEndState() { return endState; }
-
     // constructors
-    public FiniteAutomaton (HashMap<String, HashMap<String, String>> t, String[] a, String es) {
+    public FiniteAutomaton (LinkedHashMap<String, LinkedHashMap<String, String>> t, String[] a, String es) {
         rows = t;
         alphabet = a;
         endState = es;
     }
+
     public FiniteAutomaton (String text) {
         String[] lines = text.split("[\\r\\n]+");
         String[] states = lines[2].trim().split(" ");
         alphabet = lines[0].trim().split(" ");
         endState = lines[1].trim();
-        rows = new HashMap<>();
+        rows = new LinkedHashMap<>();
 
         for (String state : states)
-            rows.put(state, (HashMap<String, String>) Stream.of(alphabet)
-                    .collect(Collectors.toMap(a -> a, a -> "")));
+            rows.put(state, Arrays.stream(alphabet)
+                    .collect(Collectors.toMap(a -> a, a-> "", (a1, a2) -> a1, LinkedHashMap::new)));
 
         for (int i = 3; i < lines.length; i++) {
             String[] line = lines[i].trim().split(" ");
@@ -39,39 +36,57 @@ public class FiniteAutomaton {
         }
     }
 
+    private boolean checkIfNFA() {
+        AtomicBoolean result = new AtomicBoolean(false);
+        rows.forEach((state, transitions) -> transitions.values().forEach((currState) -> {
+            if (checkIfNewState(rows, currState)) result.set(true);
+        }));
+        return result.get();
+    }
+
     // transform into dfa
-    public FiniteAutomaton transformIntoDFA() {
-        HashMap<String, HashMap<String, String>> dfaRows = new HashMap<>();
+    public FiniteAutomaton convertToDFA() {
+        if (!checkIfNFA()) {
+            System.out.println("Current FA is already deterministic.");
+            return this;
+        }
+        LinkedHashMap<String, LinkedHashMap<String, String>> dfaRows = new LinkedHashMap<>();
+        LinkedHashMap<String, LinkedHashMap<String, String>> previousNewRows = new LinkedHashMap<>();
         dfaRows.put("0", rows.get("0"));
+        previousNewRows.put("0", rows.get("0"));
         printTransitions(rows);
         printTransitions(dfaRows);
 
         while(true) {
-            HashMap<String, HashMap<String, String>> newRows = generateNewRows(dfaRows);
-            if (newRows.isEmpty()) break;
-            dfaRows.putAll(newRows);
+            LinkedHashMap<String, LinkedHashMap<String, String>> generatedNewRows = generateNewRows(previousNewRows, dfaRows);
+            if (generatedNewRows.isEmpty()) break;
+            dfaRows.putAll(generatedNewRows);
+            previousNewRows = generatedNewRows;
             printTransitions(dfaRows);
         }
         return new FiniteAutomaton(dfaRows, alphabet, endState);
     }
 
-    private HashMap<String, HashMap<String, String>> generateNewRows(HashMap<String, HashMap<String, String>> dfaRows) {
-        HashMap<String, HashMap<String, String>> newRows = new HashMap<>();
-        dfaRows.forEach((state, transitions) -> transitions.values().forEach((currState) -> {
+    private LinkedHashMap<String, LinkedHashMap<String, String>> generateNewRows(LinkedHashMap<String, LinkedHashMap<String, String>> tempRows, LinkedHashMap<String, LinkedHashMap<String, String>> dfaRows) {
+        LinkedHashMap<String, LinkedHashMap<String, String>> newRows = new LinkedHashMap<>();
+        tempRows.forEach((state, transitions) -> transitions.values().forEach((currState) -> {
             if (checkIfNewState(dfaRows, currState)) {
-                newRows.put(currState, new HashMap<>());
+                newRows.put(currState, new LinkedHashMap<>());
                 for (String transVar : alphabet)
                     newRows.get(currState).put(transVar, generateNewState(transVar, currState));
             }}));
         return newRows;
     }
+
     private String sortNewState(StringBuilder generatedString) {
         SortedSet<String> sortedGeneratedState = new TreeSet<>(Arrays.asList(generatedString.toString().split("")));
         return sortedGeneratedState.stream().reduce("", String::concat);
     }
-    private boolean checkIfNewState(HashMap<String, HashMap<String, String>> rows, String currState) {
+
+    private boolean checkIfNewState(LinkedHashMap<String, LinkedHashMap<String, String>> rows, String currState) {
         return !rows.containsKey(currState) && !Objects.equals(currState, "");
     }
+
     private String generateNewState(String transVar, String currState) {
         StringBuilder generatedString = new StringBuilder();
         String[] nestedStates = currState.split("");
@@ -81,7 +96,8 @@ public class FiniteAutomaton {
 
         return sortNewState(generatedString);
     }
-    private void printTransitions(HashMap<String, HashMap<String, String>> rows) {
+
+    private void printTransitions(LinkedHashMap<String, LinkedHashMap<String, String>> rows) {
         rows.forEach((state, transitions) -> {
             if (state.equals("0")) System.out.printf("\n%-5s", ">" + state);
             else if (state.contains(endState)) System.out.printf("\n%-5s", "*" + state);
