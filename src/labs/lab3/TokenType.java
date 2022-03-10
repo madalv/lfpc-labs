@@ -5,7 +5,7 @@ public enum TokenType {
     SEMICOLON(";"), R_BRACKET("]"), L_BRACKET("["), MOD("%"),
     R_BRACE("}"), L_BRACE("{"), R_PAR(")"), L_PAR("("), COMMA(","),
     PLUS("+"), MINUS("-"), NOT("!"), L_ANGLE("<"), R_ANGLE(">"),
-    ASTERISK("*"), SLASH("/"), UNDERSCORE("_"), ASSIGN("="), QUOTE("\""),
+    ASTERISK("*"), SLASH("/"), UNDERSCORE("_"), ASSIGN("="),
     LEQ_SIGN("<="), GEQ_SIGN(">="), EQUAL("=="), INCREMENT("++"),
     DECREMENT("--"), PLUS_ASSIGN("+="), MINUS_ASSIGN("-="),
 

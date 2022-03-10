@@ -8,6 +8,9 @@ public class Lexer {
         for (int i = 0; i < sourceCode.length() - 1; i++) {
             char c = sourceCode.charAt(i);
             String next2Chars = "" + c + sourceCode.charAt(i + 1);
+            Token singleOpTok = checkIfSingleCharOperator(c);
+            Token doubleOpTok = checkIfDoubleCharOperator(next2Chars);
+
             if (checkIfIgnorable(c)) continue;
             else if (next2Chars.equals("//"))
                 i = getCharAfterComment(i, sourceCode);
@@ -17,11 +20,9 @@ public class Lexer {
                 i = processIdentifier(sourceCode, i, tokens);
             else if (Character.isDigit(c))
                 i = processNumber(sourceCode, i, tokens);
-            else if (checkIfDoubleCharOperator(next2Chars) != null) {
-                tokens.add(checkIfDoubleCharOperator(next2Chars));
-                i++;
-            } else if (checkIfSingleCharOperator(c) != null)
-                tokens.add(checkIfSingleCharOperator(c));
+            else if (doubleOpTok != null) {
+                tokens.add(doubleOpTok); i++;
+            } else if (singleOpTok != null) tokens.add(singleOpTok);
             else tokens.add(new Token(TokenType.UNKNOWN, TokenType.UNKNOWN.value));
         }
         tokens.add(new Token(TokenType.EOF, TokenType.EOF.value));

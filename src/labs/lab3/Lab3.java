@@ -18,14 +18,9 @@ public class Lab3 {
 
         String code2 = """
                 // recursive function
-                                
-                fun fib(int n) ret int {
-                	if (n == 0) return 0;
-                	if (n == 1) return 1;
-                	else fib(n - 1) + fib(n - 2);
-                }
-                
-                string s = "aaa";
+                int i = 10;
+                string s = "abc";
+                double d = 1.2;
                 """;
 
         lexer.tokenize(code2).forEach(a -> System.out.println(a.type + " " + a.literal));
