@@ -8,5 +8,4 @@ public class Token {
         type = t;
         literal = l;
     }
-    public Token(){}
 }

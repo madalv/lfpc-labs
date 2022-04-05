@@ -2,7 +2,6 @@ package labs.lab3;
 import java.util.*;
 
 public class Lexer {
-
     public Vector<Token> tokenize(String sourceCode) {
         Vector<Token> tokens = new Vector<>();
         for (int i = 0; i < sourceCode.length() - 1; i++) {
@@ -33,46 +32,44 @@ public class Lexer {
         int endIndex = getCurrString(i, sourceCode);
         String currString = sourceCode.substring(i + 1, endIndex);
         tokens.add(new Token(TokenType.STRING, currString));
-        return endIndex;
+        return endIndex - 1;
     }
-    //TODO: clean up
     private int processIdentifier(String sourceCode, int i, Vector<Token> tokens) {
         int endIndex = getCurrWord(i, sourceCode);
-        String currWord = sourceCode.substring(i, endIndex + 1);
+        String currWord = sourceCode.substring(i, endIndex);
         Token tok = checkIfKeyword(currWord);
         if (tok != null) tokens.add(tok);
         else tokens.add(new Token(TokenType.IDENTIFIER, currWord));
-        return endIndex;
+        return endIndex - 1;
     }
-
     private int processNumber(String sourceCode, int i, Vector<Token> tokens) {
         int endIndex = getCurrNumber(i, sourceCode);
-        String currNumber = sourceCode.substring(i, endIndex + 1);
+        String currNumber = sourceCode.substring(i, endIndex);
         if (currNumber.contains(".")) tokens.add(new Token(TokenType.DOUBLE, currNumber));
         else tokens.add(new Token(TokenType.INT, currNumber));
-        return endIndex;
+        return endIndex - 1;
     }
     private int getCurrWord(int i, String sourceCode) {
         int j = i;
         while (Character.isLetterOrDigit(sourceCode.charAt(j))) j++;
-        return j - 1;
+        return j;
     }
     private int getCurrNumber(int i, String sourceCode) {
         int j = i;
         while (Character.isDigit(sourceCode.charAt(j)) || sourceCode.charAt(j) == '.') j++;
-        return j - 1;
+        return j;
     }
     private int getCurrString(int i, String sourceCode) {
         int j = i + 1;
         while (sourceCode.charAt(j) != '\"') j++;
         return j;
     }
+
+
     private boolean checkIfIgnorable(char c) {
         return checkIfSpace(c)|| checkIfEOL(c) || c == '\t';
     }
-    private boolean checkIfSpace(char c) {
-        return c == ' ';
-    }
+    private boolean checkIfSpace(char c) {return c == ' ';}
     private int getCharAfterComment(int i, String sourceCode) {
         int j = i + 2;
         while (!checkIfEOL(sourceCode.charAt(j))) j++;

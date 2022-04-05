@@ -16,13 +16,6 @@ public class Lab3 {
                     int sum = addValues(a);
                }""";
 
-        String code2 = """
-                // recursive function
-                int i = 10;
-                string s = "abc";
-                double d = 1.2;
-                """;
-
-        lexer.tokenize(code2).forEach(a -> System.out.println(a.type + " " + a.literal));
+        lexer.tokenize(code).forEach(a -> System.out.println(a.type + " " + a.literal));
     }
 }
