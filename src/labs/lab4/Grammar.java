@@ -5,12 +5,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
 
 public class Grammar {
     public List<String> Vn;
     public List<String> Vt;
-    public LinkedHashMap<String, Set<String>> P;
+    public ConcurrentHashMap<String, Set<String>> P;
     public String S;
 
     Grammar(String filename) throws IOException {
@@ -21,7 +25,7 @@ public class Grammar {
         S = lines.get(0).trim();
         Vn = new ArrayList<>(Arrays.stream(lines.get(1).trim().split(" ")).toList());
         Vt = new ArrayList<>(Arrays.stream(lines.get(2).trim().split(" ")).toList());
-        P = new LinkedHashMap<>();
+        P = new ConcurrentHashMap<>();
 
         for (String N : Vn) P.put(N, new HashSet<>());
 
@@ -35,7 +39,8 @@ public class Grammar {
     public void convertToCNF() {
         System.out.println("Vn: " + Vn);
         System.out.println("Vt: " + Vt);
-        System.out.println("Init: " + P);
+        System.out.println("Init: ");
+        printP();
         removeEmptyProductions();
         removeRenamings();
         removeNonProductives();
@@ -57,11 +62,14 @@ public class Grammar {
         });
 
         if (!getNullables().isEmpty()) removeEmptyProductions();
-        else System.out.println("STEP 1 (Remove Empty Productions):\n" + P);
+        else {
+            System.out.println("STEP 1 (Remove Empty Productions):");
+            printP();
+        }
     }
 
     private Map<String, Set<String>> deepCopyP () {
-        return P.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
+        return P.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue()), (e1, e2) -> e1,LinkedHashMap::new));
     }
 
     private void addCombinations(String nullable, String N, String rhs) {
@@ -100,16 +108,24 @@ public class Grammar {
     // -------------------------- STEP 2 --------------------------
     // removal of renamings
     private void removeRenamings() {
+        AtomicBoolean notFinished = new AtomicBoolean(true);
         Map<String, Set<String>> copyP = deepCopyP();
-        copyP.forEach((N, RHSList) -> {
-            for (String RHS : RHSList) {
-                if (Vn.contains(RHS)) {
-                    P.get(N).remove(RHS);
-                    P.get(N).addAll(P.get(RHS));
+        while (notFinished.get()){
+            notFinished.set(false);
+            copyP.forEach((N, RHSList) -> {
+                for (String RHS : RHSList) {
+                    if (Vn.contains(RHS)) {
+                        notFinished.set(true);
+                        P.get(N).remove(RHS);
+                        P.get(N).addAll(P.get(RHS));
+                    }
                 }
-            }
-        });
-        System.out.println("STEP 2 (Remove Renamings):\n"+ P);
+            });
+
+            copyP = deepCopyP();
+        }
+        System.out.println("STEP 2 (Remove Renamings):");
+        printP();
     }
 
     // -------------------------- STEP 3 --------------------------
@@ -133,8 +149,8 @@ public class Grammar {
                 + "Non-productives: "
                 + nonproductives
                 + " Productives: "
-                + productives
-                + "\n" + P);
+                + productives);
+        printP();
     }
 
     private Set<String> getProductives() {
@@ -145,6 +161,9 @@ public class Grammar {
                     productives.add(N);
                     break;
                 }
+            }});
+        P.forEach((N, RHSList) -> {
+            for (String RHS : RHSList) {
                 boolean isProductive = true;
                 for (char c : RHS.toCharArray()) {
                     isProductive = productives.contains(String.valueOf(c));
@@ -164,8 +183,8 @@ public class Grammar {
         }
         Vn.removeAll(inaccessibles);
         System.out.println("STEP 4 (Remove Inaccessibles): \n"
-                + "Inaccessibles: " + inaccessibles + "\n"
-                + P);
+                + "Inaccessibles: " + inaccessibles);
+        printP();
     }
 
     private List<String> getInaccessibles() {
@@ -189,28 +208,30 @@ public class Grammar {
         copyP.forEach((N, RHSList) -> {
             for (String RHS : RHSList) {
                 StringBuilder repl = new StringBuilder();
-                String firstC = String.valueOf(RHS.charAt(0));
+                String firstSymbol = String.valueOf(RHS.charAt(0));
                 if (RHS.length() == 1) continue;
-                repl.append(mapSingle(firstC));
+                repl.append(mapSingle(firstSymbol));
                 repl.append(convertProduction(RHS.substring(1)));
                 P.get(N).remove(RHS);
                 P.get(N).add(repl.toString());
             }
         });
 
-        X.forEach((ogValue, replacement) -> {
-            P.put(replacement, new HashSet<>());
-            P.get(replacement).add(ogValue);
-        });
-
-        Y.forEach((ogValue, replacement) -> {
-            P.put(replacement, new HashSet<>());
-            P.get(replacement).add(ogValue);
-        });
+        addReplacements(X);
+        addReplacements(Y);
 
         System.out.println("X: " + X);
         System.out.println("Y: " + Y);
-        System.out.println("STEP 5 (FINAL Chomsky Form): \n" + P);
+        System.out.println("STEP 5 (FINAL Chomsky Form):");
+        printP();
+    }
+
+    private void addReplacements(HashMap<String, String> h) {
+        h.forEach((ogValue, replacement) -> {
+            P.put(replacement, new HashSet<>());
+            P.get(replacement).add(ogValue);
+            Vn.add(replacement);
+        });
     }
 
     // reduces to 1 Y symbol
@@ -236,5 +257,118 @@ public class Grammar {
         String y = "Y" + (Y.size() + 1);
         Y.put(O, y);
         return y;
+    }
+
+
+    // -------------------------- GREIBACH FORM --------------------------
+    public void convertToGNF() {
+        AtomicInteger zCount = new AtomicInteger(1);
+        System.out.println("GREIBACH FORM:");
+        AtomicBoolean notFinished = new AtomicBoolean(true);
+        Set<String> toAdd = new HashSet<>();
+
+        convertToCNF();
+        removeInitialLeftRecursion(zCount);
+
+        P.forEach((N, RHSList) -> {
+            notFinished.set(true);
+            while(notFinished.get()) {
+                Set<String> RHSSet = Set.copyOf(RHSList);
+                notFinished.set(false);
+                for (String RHS : RHSSet) {
+                    //notFinished.set(false);
+                    if (checkIfProductionGreibach(RHS)) continue;
+                    notFinished.set(true);
+                    toAdd.addAll(getIntoGreibachForm(N, RHS, zCount.get()));
+                }
+                P.get(N).addAll(toAdd);
+                toAdd.clear();
+            }
+        });
+        printP();
+    }
+
+    private void removeInitialLeftRecursion(AtomicInteger zCount) {
+        Set<String> toAdd = new HashSet<>();
+        P.forEach((N, RHSList) -> {
+            for (String RHS : RHSList) {
+                String firstSymbol = getSymbol(RHS, 0);
+                if (firstSymbol.equals(N)) {
+                    toAdd.addAll(eliminateLeftRecursion(zCount.getAndIncrement(), RHS, N));
+                    P.get(N).remove(RHS);
+                }
+            }
+            P.get(N).addAll(toAdd);
+            toAdd.clear();
+        });
+    }
+
+    // returns set of productions to be added (obtained after getting one RHS into Greibach)
+    @SuppressWarnings("UnusedAssignment")
+    private Set<String> getIntoGreibachForm(String N, String RHS, int zCount) {
+        String firstSymbol = getSymbol(RHS, 0);
+        Set<String> toAdd = new HashSet<>();
+
+        if (firstSymbol.equals(N)) // A -> AX
+            toAdd.addAll(eliminateLeftRecursion(zCount++, RHS, N));
+        else // A -> CX
+            for (String prefix : P.get(firstSymbol)){
+                String newRHS = prefix + RHS.substring(firstSymbol.length());
+                toAdd.add(newRHS);
+            }
+        P.get(N).remove(RHS);
+        return toAdd;
+    }
+
+    private boolean checkIfProductionGreibach(String p) {
+        boolean result = true;
+        if (p.length() > 1) // Chomsky ensures no unit productions remain
+            if (!Vt.contains(String.valueOf(p.charAt(0)))) result = false; // if first symbol is not terminal
+            else for (int i = 1; i < p.length(); i++) {
+                if (Character.isDigit(p.charAt(i))) continue; // ignore second part of composite symbols (X1, Z2, etc.)
+                String C = getSymbol(p, i);
+                if (!Vn.contains(C)) {
+                    result = false;
+                    break;
+                }
+            }
+        return result;
+    }
+
+    // returns set of productions for A obtained after substituting Z back into A [check step 2 below]
+    private Set<String> eliminateLeftRecursion(int count, String RHS, String N) {
+        // A -> AX | Y
+        // <eliminates left rec>
+        // 1) Z -> XZ | X
+        // 2) A -> YZ
+        Set<String> toAdd = new HashSet<>();
+
+        // implements (1)
+        String Z = "Z" + count;
+        P.put(Z, new HashSet<>());
+        P.get(Z).add(RHS.substring(1) + Z);
+        P.get(Z).add(RHS.substring(1));
+        Vn.add(Z);
+
+        // implements (2)
+        for (String p : P.get(N)) if (!p.equals(RHS)) toAdd.add(p + Z);
+
+        return toAdd;
+    }
+
+    private String getSymbol(String p, int i) {
+        String C = (String.valueOf(p.charAt(i)));
+        if (C.equals("Z") || C.equals("X") || C.equals("Y")
+        ) C += String.valueOf(p.charAt(i + 1));
+        return C;
+    }
+
+    public void printP() {
+        P.forEach((N, RHSList) -> {
+            System.out.print(N + ": ");
+            RHSList.forEach(rhs -> System.out.print(rhs + " | "));
+            System.out.println();
+        });
+        System.out.println("\n");
     }
 }
