@@ -31,13 +31,26 @@ public class Grammar {
         }
     }
 
+    // CONVERT TO CHOMSKY NORMAL FORM
+    public void convertToCNF() {
+        System.out.println("Vn: " + Vn);
+        System.out.println("Vt: " + Vt);
+        System.out.println("Init: " + P);
+        removeEmptyProductions();
+        removeRenamings();
+        removeNonProductives();
+        removeInaccessibles();
+        transformIntoChomsky();
+    }
     // -------------------------- STEP 1 --------------------------
     //removal of empty productions
-    public void removeEmptyProductions() {
+    private void removeEmptyProductions() {
         Set<String> nullables = getNullables();
         Map<String, Set<String>> copyP = deepCopyP();
 
         copyP.forEach((N, RHSList) -> {
+            P.get(N).remove("*");
+            P.get(N).remove("");
             for (String RHS : RHSList)
                 for (String nullable : nullables)
                     if (RHS.contains(nullable)) addCombinations(nullable, N, RHS);
@@ -54,14 +67,14 @@ public class Grammar {
     private void addCombinations(String nullable, String N, String rhs) {
         List<String> combinations = (getCombinations(rhs, nullable.charAt(0), 0));
         P.get(N).addAll(combinations);
-        P.get(N).remove(rhs);
     }
 
     private Set<String> getNullables () { // A -> epsilon, A - nullable
         Set<String> nullables  = new HashSet<>();
-        P.forEach((N, ListRHS) -> {
+        Map<String, Set<String>> copyP = deepCopyP();
+        copyP.forEach((N, ListRHS) -> {
             for (String RHS : ListRHS)
-                if (RHS.equals("*")) nullables.add(N); ListRHS.remove("*");
+                if (RHS.equals("*") || RHS.equals("")) nullables.add(N);
         });
         return nullables;
     }
@@ -86,7 +99,7 @@ public class Grammar {
 
     // -------------------------- STEP 2 --------------------------
     // removal of renamings
-    public void removeRenamings() {
+    private void removeRenamings() {
         Map<String, Set<String>> copyP = deepCopyP();
         copyP.forEach((N, RHSList) -> {
             for (String RHS : RHSList) {
@@ -101,7 +114,7 @@ public class Grammar {
 
     // -------------------------- STEP 3 --------------------------
     // removal of non-productive symbols
-    public void removeNonProductives() {
+    private void removeNonProductives() {
         Set<String> nonproductives = new HashSet<>(Vn);
         Set<String> productives = getProductives();
         nonproductives.removeAll(productives);
@@ -144,7 +157,7 @@ public class Grammar {
 
     // -------------------------- STEP 4 --------------------------
     // removal of inaccessible symbols
-    public void removeInaccessibles() {
+    private void removeInaccessibles() {
         List<String> inaccessibles = getInaccessibles();
         for (String i : inaccessibles) {
             P.remove(i);
@@ -155,7 +168,7 @@ public class Grammar {
                 + P);
     }
 
-    public List<String> getInaccessibles() {
+    private List<String> getInaccessibles() {
         List<String> inaccessibles = new ArrayList<>(Vn);
         inaccessibles.remove(S);
         P.forEach((N, RHSList) -> {
@@ -169,4 +182,59 @@ public class Grammar {
 
     // -------------------------- STEP 5 --------------------------
     // the chomsky normal form
+    private final HashMap<String, String> X = new HashMap<>();
+    private final HashMap<String, String> Y = new HashMap<>();
+    private void transformIntoChomsky() {
+        Map<String, Set<String>> copyP = deepCopyP();
+        copyP.forEach((N, RHSList) -> {
+            for (String RHS : RHSList) {
+                StringBuilder repl = new StringBuilder();
+                String firstC = String.valueOf(RHS.charAt(0));
+                if (RHS.length() == 1) continue;
+                repl.append(mapSingle(firstC));
+                repl.append(convertProduction(RHS.substring(1)));
+                P.get(N).remove(RHS);
+                P.get(N).add(repl.toString());
+            }
+        });
+
+        X.forEach((ogValue, replacement) -> {
+            P.put(replacement, new HashSet<>());
+            P.get(replacement).add(ogValue);
+        });
+
+        Y.forEach((ogValue, replacement) -> {
+            P.put(replacement, new HashSet<>());
+            P.get(replacement).add(ogValue);
+        });
+
+        System.out.println("X: " + X);
+        System.out.println("Y: " + Y);
+        System.out.println("STEP 5 (FINAL Chomsky Form): \n" + P);
+    }
+
+    // reduces to 1 Y symbol
+    private String convertProduction(String p) {
+        if (Vt.contains(p)) {
+            return mapSingle(p);
+        } else if (p.length() == 1) return p;
+
+        return mapToY(mapSingle(String.valueOf(p.charAt(0))), convertProduction(p.substring(1)));
+    }
+
+    private String mapSingle(String t) {
+        if (X.containsKey(t)) return X.get(t);
+        if (Vn.contains(t)) return  t;
+        String x = "X" + (X.size() + 1);
+        X.put(t, x);
+        return x;
+    }
+
+    private String mapToY(String N, String M) {
+        String O = N + M;
+        if (Y.containsKey(O)) return Y.get(O);
+        String y = "Y" + (Y.size() + 1);
+        Y.put(O, y);
+        return y;
+    }
 }
