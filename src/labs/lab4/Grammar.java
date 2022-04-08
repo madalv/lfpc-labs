@@ -37,9 +37,6 @@ public class Grammar {
 
     // CONVERT TO CHOMSKY NORMAL FORM
     public void convertToCNF() {
-        System.out.println("Vn: " + Vn);
-        System.out.println("Vt: " + Vt);
-        System.out.println("Init: ");
         printP();
         removeEmptyProductions();
         removeRenamings();
@@ -166,7 +163,7 @@ public class Grammar {
             for (String RHS : RHSList) {
                 boolean isProductive = true;
                 for (char c : RHS.toCharArray()) {
-                    isProductive = productives.contains(String.valueOf(c));
+                    isProductive = productives.contains(String.valueOf(c)) || Vt.contains(String.valueOf(c));
                 }
                 if (isProductive) productives.add(N);
             }
@@ -178,9 +175,8 @@ public class Grammar {
     // removal of inaccessible symbols
     private void removeInaccessibles() {
         List<String> inaccessibles = getInaccessibles();
-        for (String i : inaccessibles) {
-            P.remove(i);
-        }
+        for (String i : inaccessibles) P.remove(i);
+
         Vn.removeAll(inaccessibles);
         System.out.println("STEP 4 (Remove Inaccessibles): \n"
                 + "Inaccessibles: " + inaccessibles);
@@ -263,28 +259,28 @@ public class Grammar {
     // -------------------------- GREIBACH FORM --------------------------
     public void convertToGNF() {
         AtomicInteger zCount = new AtomicInteger(1);
-        System.out.println("GREIBACH FORM:");
         AtomicBoolean notFinished = new AtomicBoolean(true);
-        Set<String> toAdd = new HashSet<>();
+
 
         convertToCNF();
         removeInitialLeftRecursion(zCount);
 
+        System.out.println(" ------------------- GREIBACH FORM: -------------------");
         P.forEach((N, RHSList) -> {
             notFinished.set(true);
             while(notFinished.get()) {
                 Set<String> RHSSet = Set.copyOf(RHSList);
                 notFinished.set(false);
                 for (String RHS : RHSSet) {
-                    //notFinished.set(false);
                     if (checkIfProductionGreibach(RHS)) continue;
                     notFinished.set(true);
-                    toAdd.addAll(getIntoGreibachForm(N, RHS, zCount.get()));
+                    System.out.println(N + " -> " + RHS + " - not in Greibach;");
+                    P.get(N).addAll(getIntoGreibachForm(N, RHS, zCount));
+                    printP();
                 }
-                P.get(N).addAll(toAdd);
-                toAdd.clear();
             }
         });
+        System.out.println("FINAL GREIBACH FORM:");
         printP();
     }
 
@@ -294,28 +290,33 @@ public class Grammar {
             for (String RHS : RHSList) {
                 String firstSymbol = getSymbol(RHS, 0);
                 if (firstSymbol.equals(N)) {
-                    toAdd.addAll(eliminateLeftRecursion(zCount.getAndIncrement(), RHS, N));
+                    System.out.println(N + " -> " + RHS + " - remove initial left recursion.");
+                    toAdd.addAll(eliminateLeftRecursion(zCount, RHS, N));
                     P.get(N).remove(RHS);
                 }
             }
             P.get(N).addAll(toAdd);
             toAdd.clear();
         });
+        printP();
     }
 
     // returns set of productions to be added (obtained after getting one RHS into Greibach)
-    @SuppressWarnings("UnusedAssignment")
-    private Set<String> getIntoGreibachForm(String N, String RHS, int zCount) {
+
+    private Set<String> getIntoGreibachForm(String N, String RHS, AtomicInteger zCount) {
         String firstSymbol = getSymbol(RHS, 0);
         Set<String> toAdd = new HashSet<>();
 
         if (firstSymbol.equals(N)) // A -> AX
-            toAdd.addAll(eliminateLeftRecursion(zCount++, RHS, N));
-        else // A -> CX
-            for (String prefix : P.get(firstSymbol)){
+            toAdd.addAll(eliminateLeftRecursion(zCount, RHS, N));
+        else { // A -> CX
+            System.out.println("Substitute " + firstSymbol + "'s productions ("+ P.get(firstSymbol) +") into " + RHS);
+
+            for (String prefix : P.get(firstSymbol)) {
                 String newRHS = prefix + RHS.substring(firstSymbol.length());
                 toAdd.add(newRHS);
             }
+        }
         P.get(N).remove(RHS);
         return toAdd;
     }
@@ -336,7 +337,7 @@ public class Grammar {
     }
 
     // returns set of productions for A obtained after substituting Z back into A [check step 2 below]
-    private Set<String> eliminateLeftRecursion(int count, String RHS, String N) {
+    private Set<String> eliminateLeftRecursion(AtomicInteger count, String RHS, String N) {
         // A -> AX | Y
         // <eliminates left rec>
         // 1) Z -> XZ | X
@@ -344,14 +345,16 @@ public class Grammar {
         Set<String> toAdd = new HashSet<>();
 
         // implements (1)
-        String Z = "Z" + count;
+        String Z = "Z" + count.getAndIncrement();
         P.put(Z, new HashSet<>());
         P.get(Z).add(RHS.substring(1) + Z);
         P.get(Z).add(RHS.substring(1));
         Vn.add(Z);
+        System.out.println(N + " -> " + RHS + " - left recursion;\n" + Z + " new variable.");
 
         // implements (2)
-        for (String p : P.get(N)) if (!p.equals(RHS)) toAdd.add(p + Z);
+        for (String p : P.get(N)) if (!p.equals(RHS))
+            toAdd.add(p + Z);
 
         return toAdd;
     }
