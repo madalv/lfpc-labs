@@ -4,7 +4,7 @@ import java.io.IOException;
 
 public class Lab4 {
     public static void main(String[] args) throws IOException {
-        Grammar g = new Grammar("C:\\Users\\Vlada\\IdeaProjects\\lfpc\\src\\labs\\lab4\\vG1LFPC.txt");
+        Grammar g = new Grammar("C:\\Users\\Vlada\\IdeaProjects\\lfpc\\src\\labs\\lab4\\v20LFPC.txt");
         g.convertToGNF();
     }
 }
