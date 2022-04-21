@@ -6,7 +6,7 @@ S bA
 S A
 A B
 A Sa
-A bBA
+A bBABABAB
 A b
 B b
 B bS

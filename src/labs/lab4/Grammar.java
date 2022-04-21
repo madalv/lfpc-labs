@@ -17,7 +17,7 @@ public class Grammar {
     public ConcurrentHashMap<String, Set<String>> P;
     public String S;
 
-    Grammar(String filename) throws IOException {
+    public Grammar(String filename) throws IOException {
         List<String> lines;
         Path p = Paths.get(filename);
         lines = Files.readAllLines(p);
@@ -276,7 +276,7 @@ public class Grammar {
                     System.out.println(N + " -> " + RHS + " - not in Greibach;");
 
                     if (firstSymbol.equals(N)) recursionSymbols.add(RHS); // add to set in case of multiple left recursions
-                    else P.get(N).addAll(getIntoGreibachForm(N, RHS, zCount));
+                    else P.get(N).addAll(getIntoGreibachForm(N, RHS));
 
                     P.get(N).removeAll(recursionSymbols);
                     printP();
@@ -311,9 +311,11 @@ public class Grammar {
     }
 
     // returns set of productions to be added (obtained after getting one RHS into Greibach)
-    private Set<String> getIntoGreibachForm(String N, String RHS, AtomicInteger zCount) {
+    private Set<String> getIntoGreibachForm(String N, String RHS) {
         String firstSymbol = getSymbol(RHS, 0);
         Set<String> toAdd = new HashSet<>();
+
+        System.out.println("Substitute " + firstSymbol + "'s productions " + P.get(firstSymbol) + " into " + RHS);
 
         for (String prefix : P.get(firstSymbol)) {
             String newRHS = prefix + RHS.substring(firstSymbol.length());
@@ -370,7 +372,8 @@ public class Grammar {
         return C;
     }
 
-    public void printP() { P.forEach((N, RHSList) -> System.out.println(N + " -> " + String.join(" | ", RHSList)));
+    public void printP() {
+        P.forEach((N, RHSList) -> System.out.println(N + " -> " + String.join(" | ", RHSList)));
         System.out.println();
     }
 }
