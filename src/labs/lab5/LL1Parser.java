@@ -12,7 +12,6 @@ public class LL1Parser {
     public final String epsilon = "*";
     public final String endOfInput = "$";
 
-    // TODO: transition table
     // TODO: parsing
     // TODO: add prepareForParsing (remove init recursion, left factor) in Grammar
 
@@ -33,13 +32,10 @@ public class LL1Parser {
         System.out.println("FIRST TABLE: " + firstTable);
         System.out.println("FOLLOW TABLE: " + followTable);
         System.out.println("PARSE TABLE: " + parseTable);
-
     }
 
     private void buildParseTable() {
-
         grammar.P.forEach((N, RHSList) -> {
-
             for (String RHS : RHSList) {
                 Map<String, String> row = parseTable.get(N).row;
                 if (RHS.equals(epsilon)) {
@@ -47,15 +43,18 @@ public class LL1Parser {
                         row.replace(t, RHS);
                     }
                 } else {
-                    String firstC = String.valueOf(RHS.charAt(0));
-                    if (firstTable.get(N).contains(firstC)) row.replace(firstC, RHS);
-                    else for (String t : firstTable.get(N)) {
-                            if (t.equals(epsilon)) continue;
-                            if (parseTable.get(N).row.get(t).equals("")) {
-                                row.replace(t, RHS);
-                            } else System.out.println("GRAMMAR NOT LL(1) -- MULTIPLE TRANSITIONS FOUND: \n" +
-                                    N + "->" + RHS + " and " + parseTable.get(N).row.get(t) + "for t = " + t);
-                        }
+//                    String firstC = String.valueOf(RHS.charAt(0));
+//                    if (firstTable.get(N).contains(firstC)) row.replace(firstC, RHS);
+                    for (String t : buildFirstProduction(RHS, N)) {
+                        if (!parseTable.get(N).row.get(t).equals(""))
+                            System.out.println("!!! NOT LL(1) GRAMMAR !!! \n" +
+                                    "For terminal " + t + " exist multiple transitions: " +
+                                    N + " -> " + parseTable.get(N).row.get(t) + " | " + RHS
+                            );
+                        row.replace(t, RHS);
+
+
+                    }
                 }
             }
         });
@@ -68,32 +67,34 @@ public class LL1Parser {
         firstTable.put(N, new HashSet<>()); // else initialize
         Set<String> productionsOfN = grammar.P.get(N);
 
-        productionsOfN.forEach(p -> { buildFirstProduction(p, N); });
+        productionsOfN.forEach(p -> firstTable.get(N).addAll(buildFirstProduction(p, N)));
         return firstTable.get(N);
     }
 
-    private void buildFirstProduction (String p, String N) {
-        if (p.equals(epsilon)) firstTable.get(N).add(epsilon); // if N derives into empty directly, add
+    private Set<String> buildFirstProduction (String p, String N) {
+        Set<String> tempTerminals = new HashSet<>();
+        if (p.equals(epsilon)) tempTerminals.add(epsilon); // if N derives into empty directly, add
         else for (int i = 0; i < p.length(); i++) {
             String currSymbol = String.valueOf(p.charAt(i));
             if (grammar.Vt.contains(currSymbol)) {
-                firstTable.get(N).add(currSymbol);
+                tempTerminals.add(currSymbol);
                 break;
             }
             Set<String> firstOfPS = buildFirst(currSymbol);
             // if no epsilon in symbol's first table add set to N's first
             if (!firstOfPS.contains(epsilon)) {
-                firstTable.get(N).addAll(firstOfPS);
+                tempTerminals.addAll(firstOfPS);
                 break;
             }
             else {
                 // 1) add all to N's first -- except epsilon
                 // 2) check next symbol
                 // 3) if all symbols derive into epsilon, add epsilon to current N first
-                firstTable.get(N).addAll(firstOfPS);
-                if (i != p.length() - 1) firstTable.get(N).remove(epsilon);
+                tempTerminals.addAll(firstOfPS);
+                if (i != p.length() - 1) tempTerminals.remove(epsilon);
             }
         }
+        return tempTerminals;
     }
 
     private Set<String> buildFollow (String N) {
