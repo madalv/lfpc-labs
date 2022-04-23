@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class Row {
 
@@ -19,6 +20,12 @@ public class Row {
 
     @Override
     public String toString() {
-        return "" + row + "\n";
+        return row.keySet().stream()
+                .map(k -> String.format("%-5s", row.get(k))).collect(Collectors.joining(" | "));
+    }
+
+    public void printHeader() {
+        System.out.println("     " + row.keySet().stream()
+                .map(k -> String.format("%-5s", k)).collect(Collectors.joining(" | ")));
     }
 }

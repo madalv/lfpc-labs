@@ -1,11 +1,11 @@
 E
-E T X Y F
+E T A B F
 + x ( ) a
-E TX
-X +TX
-X *
-T FY
-Y xFY
-Y *
+E TA
+A +TA
+A *
+T FB
+B xFB
+B *
 F a
 F (E)
